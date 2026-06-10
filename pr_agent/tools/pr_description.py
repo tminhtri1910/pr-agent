@@ -4,6 +4,8 @@ import re
 import traceback
 from functools import partial
 from typing import List, Tuple
+import json 
+import os
 
 import yaml
 from jinja2 import Environment, StrictUndefined
@@ -91,6 +93,17 @@ class PRDescription:
         self.patches_diff = None
         self.prediction = None
         self.file_label_dict = None
+
+        # === INJECT DEPENDENTS FROM GITHUB ACTIONS ===
+        self.dependents_data = []
+        dependents_env = os.environ.get("DEPENDENTS_DATA_JSON")
+        if dependents_env:
+            try:
+                self.dependents_data = json.loads(dependents_env)
+                get_logger().info(f"Successfully loaded {len(self.dependents_data)} dependents from environment")
+            except json.JSONDecodeError as e:
+                get_logger().error(f"Failed to parse DEPENDENTS_DATA_JSON: {e}")
+        # =============================================
 
     async def run(self):
         try:
@@ -720,6 +733,29 @@ class PRDescription:
 
                     # Add file data to the PR body
                     file_change_description_br = insert_br_after_x_chars(file_change_description, x=(delta - 5))
+
+                    # === INJECT DEPENDENTS HERE ===
+                    # Normalize filename for matching
+                    filename_clean = filename.replace("'", "").replace("`", "").rstrip()
+                    
+                    if hasattr(self, 'dependents_data') and self.dependents_data:
+                        deps_html = ""
+                        for item in self.dependents_data:
+                            # Group by file path
+                            if item.get("filePath", "") == filename_clean:
+                                entity_name = item.get("entityName", "Unknown")
+                                for dep in item.get("dependents", []):
+                                    dep_name = dep.get("name", "")
+                                    dep_type = dep.get("type", "")
+                                    dep_file = dep.get("file", "")
+                                    
+                                    deps_html += f"<li><code>{entity_name}</code> impacts <strong>{dep_name}</strong> ({dep_type}) in <code>{dep_file}</code></li>"
+                                    
+                        # Append the HTML to the description if there are dependents
+                        if deps_html:
+                            file_change_description_br += f"<br><hr><strong>🔗 Dependent Entities Impact:</strong><ul>{deps_html}</ul>"
+                    # ==============================
+
                     pr_body = self.add_file_data(delta_nbsp, diff_plus_minus, file_change_description_br, filename,
                                                  filename_publish, link, pr_body)
 
@@ -751,7 +787,7 @@ class PRDescription:
 <tr>
   <td>
     <details>
-      <summary>{filename_publish}</summary>
+      <summary>{filename_publish}</summary> 
 <hr>
 
 {filename}
