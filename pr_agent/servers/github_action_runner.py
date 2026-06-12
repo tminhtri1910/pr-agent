@@ -135,10 +135,10 @@ async def run_action():
                 # invoke by default all three tools
                 if auto_describe is None or is_true(auto_describe):
                     await PRDescription(pr_url).run()
-                if auto_review is None or is_true(auto_review):
-                    await PRReviewer(pr_url).run()
-                if auto_improve is None or is_true(auto_improve):
-                    await PRCodeSuggestions(pr_url).run()
+                # if auto_review is None or is_true(auto_review):
+                #     await PRReviewer(pr_url).run()
+                # if auto_improve is None or is_true(auto_improve):
+                #     await PRCodeSuggestions(pr_url).run()
         else:
             get_logger().info(f"Skipping action: {action}")
 

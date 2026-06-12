@@ -103,6 +103,8 @@ class PRDescription:
                 get_logger().info(f"Successfully loaded {len(self.dependents_data)} dependents from environment")
             except json.JSONDecodeError as e:
                 get_logger().error(f"Failed to parse DEPENDENTS_DATA_JSON: {e}")
+        else:
+            get_logger().info("DEPENDENTS_DATA_JSON environment variable is empty or not set.")
         # =============================================
 
     async def run(self):
