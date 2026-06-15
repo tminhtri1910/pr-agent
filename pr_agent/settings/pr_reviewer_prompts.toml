@@ -54,7 +54,7 @@ Determining what to flag:
 - Do not flag intentional design choices or stylistic preferences unless they introduce a clear defect.
 - When confidence is limited but the potential impact is high (e.g., data loss, security), report it with an explicit note on what remains uncertain. Otherwise, prefer not reporting over guessing.
 {%- if dependents_data %}
-- **Dependent Entities Impact**: Carefully review the provided dependent entities. Flag any changes in this PR that negatively impact the broader workflow, break dependent code, or create integration issues.
+- **Dependent Entities Impact**: Carefully review the provided dependent entities. Flag any changes in this PR that negatively impact the broader workflow, break dependent code, or create integration issues. Also consider how the existing constraints of these dependents might conflict with the PR's implementation.
 {%- endif %}
 
 Constructing comments:
@@ -132,10 +132,10 @@ class Review(BaseModel):
 {%- if question_str %}
     insights_from_user_answers: str = Field(description="shortly summarize the insights you gained from the user's answers to the questions")
 {%- endif %}
-    key_issues_to_review: List[KeyIssuesComponentLink] = Field("A concise list (0-{{ num_max_findings }} issues) of bugs, security vulnerabilities, breaking changes in dependent entities, or significant performance concerns introduced in this PR. Only include issues you are confident about. If confidence is limited but the potential impact is high (e.g., data loss, security), you may include it only if you explicitly note what remains uncertain. Each issue must identify a concrete problem with a realistic trigger scenario. An empty list is acceptable if no clear issues are found.")
 {%- if dependents_data %}
     impact_on_dependents: str = Field(description="Analyze the 'Dependent Entities Impact' provided in the prompt. Provide a comprehensive analysis of how the PR changes affect the broader system workflow, AND how the dependent components themselves affect the workflow. Discuss any architectural implications, required updates in dependent code, or potential integration issues. If no impact on dependents is found, output 'No impact on dependents found.'")
 {%- endif %}
+    key_issues_to_review: List[KeyIssuesComponentLink] = Field("A concise list (0-{{ num_max_findings }} issues) of bugs, security vulnerabilities, breaking changes in dependent entities, or significant performance concerns introduced in this PR. Only include issues you are confident about. If confidence is limited but the potential impact is high (e.g., data loss, security), you may include it only if you explicitly note what remains uncertain. Each issue must identify a concrete problem with a realistic trigger scenario. An empty list is acceptable if no clear issues are found.")
 {%- if require_security_review %}
     security_concerns: str = Field(description="Does this PR code introduce vulnerabilities such as exposure of sensitive information (e.g., API keys, secrets, passwords), or security concerns like SQL injection, XSS, CSRF, and others? Answer 'No' (without explaining why) if there are no possible issues. If there are security concerns or issues, start your answer with a short header, such as: 'Sensitive information exposure: ...', 'SQL injection: ...', etc. Explain your answer. Be specific and give examples if possible")
 {%- endif %}
@@ -176,6 +176,10 @@ review:
 {%- endif %}
   relevant_tests: |
     No
+{%- if dependents_data %}
+  impact_on_dependents: |
+    ...
+{%- endif %}
   key_issues_to_review:
     - relevant_file: |
         directory/xxx.py
@@ -186,10 +190,6 @@ review:
       start_line: 12
       end_line: 14
     - ...
-{%- if dependents_data %}
-  impact_on_dependents: |
-    ...
-{%- endif %}
   security_concerns: |
     No
 {%- if require_todo_scan %}
@@ -286,12 +286,18 @@ User answers:
 {%- if dependents_data %}
 
 --Dependent Entities Impact--
-The following external entities are impacted by the changes in this PR. Use this information to check for potential breaking changes in the dependent code, or suggest updates if necessary:
+The following external entities depend on the code modified in this PR. Use this information to evaluate how the PR changes affect these dependents and the broader system workflow. Also consider how the existing workflows of these dependents might influence or conflict with the PR's outcome:
 {%- for item in dependents_data %}
 Changed Entity: '{{ item.entityName }}' in '{{ item.filePath }}'
 Impacts:
 {%- for dep in item.dependents %}
   - {{ dep.name }} ({{ dep.type }}) in '{{ dep.file }}'
+{%- if dep.content %}
+    Code context (focus on where '{{ item.entityName }}' is used):
+    ```
+    {{ dep.content | trim }}
+    ```
+{%- endif %}
 {%- endfor %}
 {%- endfor %}
 {%- endif %}
@@ -331,6 +337,10 @@ review:
 {%- endif %}
   relevant_tests: |
     No
+{%- if dependents_data %}
+  impact_on_dependents: |
+    ...
+{%- endif %}
   key_issues_to_review:
     - relevant_file: |
         ...
@@ -341,10 +351,6 @@ review:
       start_line: ...
       end_line: ...
     - ...
-{%- if dependents_data %}
-  impact_on_dependents: |
-    ...
-{%- endif %}
   security_concerns: |
     No
 {%- if require_todo_scan %}

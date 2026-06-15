@@ -82,6 +82,33 @@ class PRReviewer:
         if dependents_env:
             try:
                 self.dependents_data = json.loads(dependents_env)
+                # Extract snippets to save context window
+                for item in self.dependents_data:
+                    entity_name = item.get('entityName')
+                    if not entity_name:
+                        continue
+                    for dep in item.get('dependents', []):
+                        content = dep.get('content')
+                        if content:
+                            lines = content.split('\n')
+                            target_idx = -1
+                            # Find the first line containing the entityName
+                            for i, line in enumerate(lines):
+                                if entity_name in line:
+                                    target_idx = i
+                                    break
+                            
+                            if target_idx != -1:
+                                # Extract 3 lines before and 3 lines after
+                                start_idx = max(0, target_idx - 3)
+                                end_idx = min(len(lines), target_idx + 4)
+                                snippet = "\n".join(lines[start_idx:end_idx])
+                                dep['content'] = f"... (snippet) ...\n{snippet}\n... (snippet) ..."
+                            else:
+                                # Fallback: take the first 5 lines if not explicitly found
+                                snippet = "\n".join(lines[:5])
+                                dep['content'] = f"{snippet}\n... (snippet) ..."
+                                
                 get_logger().info(f"Successfully loaded {len(self.dependents_data)} dependents from environment")
             except json.JSONDecodeError as e:
                 get_logger().error(f"Failed to parse DEPENDENTS_DATA_JSON: {e}")
