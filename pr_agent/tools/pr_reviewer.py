@@ -1,6 +1,8 @@
 import copy
 import datetime
 import traceback
+import json
+import os
 from collections import OrderedDict
 from functools import partial
 from typing import List, Tuple
@@ -74,6 +76,19 @@ class PRReviewer:
             get_settings().set("config.enable_ai_metadata", False)
             get_logger().debug(f"AI metadata is disabled for this command")
 
+        # === INJECT DEPENDENTS FROM GITHUB ACTIONS ===
+        self.dependents_data = []
+        dependents_env = os.environ.get("DEPENDENTS_DATA_JSON")
+        if dependents_env:
+            try:
+                self.dependents_data = json.loads(dependents_env)
+                get_logger().info(f"Successfully loaded {len(self.dependents_data)} dependents from environment")
+            except json.JSONDecodeError as e:
+                get_logger().error(f"Failed to parse DEPENDENTS_DATA_JSON: {e}")
+        else:
+            get_logger().info("DEPENDENTS_DATA_JSON environment variable is empty or not set.")
+        # =============================================
+
         self.vars = {
             "title": self.git_provider.pr.title,
             "branch": self.git_provider.get_pr_branch(),
@@ -99,6 +114,7 @@ class PRReviewer:
             "related_tickets": get_settings().get('related_tickets', []),
             'duplicate_prompt_examples': get_settings().config.get('duplicate_prompt_examples', False),
             "date": datetime.datetime.now().strftime('%Y-%m-%d'),
+            "dependents_data": self.dependents_data,
         }
 
         self.token_handler = TokenHandler(

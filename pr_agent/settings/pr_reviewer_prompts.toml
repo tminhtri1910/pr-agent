@@ -273,6 +273,19 @@ User answers:
 =====
 {%- endif %}
 
+{%- if dependents_data %}
+
+--Dependent Entities Impact--
+The following external entities are impacted by the changes in this PR. Use this information to check for potential breaking changes in the dependent code, or suggest updates if necessary:
+{%- for item in dependents_data %}
+Changed Entity: '{{ item.entityName }}' in '{{ item.filePath }}'
+Impacts:
+{%- for dep in item.dependents %}
+  - {{ dep.name }} ({{ dep.type }}) in '{{ dep.file }}'
+{%- endfor %}
+{%- endfor %}
+{%- endif %}
+
 
 The PR code diff:
 ======
