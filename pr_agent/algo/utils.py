@@ -219,6 +219,23 @@ def convert_to_markdown_v2(output_data: dict,
             else:
                 markdown_text += f"### {emoji} Contribution time estimate (best, average, worst case): "
                 markdown_text += f"{value['best_case'].replace('m', ' minutes')} | {value['average_case'].replace('m', ' minutes')} | {value['worst_case'].replace('m', ' minutes')}\n\n"
+        elif 'impact on dependents' in key_nice.lower():
+            if not emoji:
+                emoji = '🔌'
+            if gfm_supported:
+                markdown_text += f"<tr><td>"
+                if "no impact on dependents found" in value.lower() or is_value_no(value):
+                    markdown_text += f"{emoji}&nbsp;<strong>No impact on dependents found</strong>"
+                else:
+                    markdown_text += f"{emoji}&nbsp;<strong>Impact on dependents</strong><br><br>\n\n"
+                    markdown_text += f"{value.strip()}"
+                markdown_text += f"</td></tr>\n"
+            else:
+                if "no impact on dependents found" in value.lower() or is_value_no(value):
+                    markdown_text += f'### {emoji} No impact on dependents found\n\n'
+                else:
+                    markdown_text += f"### {emoji} Impact on dependents\n\n"
+                    markdown_text += f"{value.strip()}\n\n"
         elif 'security concerns' in key_nice.lower():
             if gfm_supported:
                 markdown_text += f"<tr><td>"
