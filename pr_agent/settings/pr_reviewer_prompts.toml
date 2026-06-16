@@ -54,7 +54,7 @@ Determining what to flag:
 - Do not flag intentional design choices or stylistic preferences unless they introduce a clear defect.
 - When confidence is limited but the potential impact is high (e.g., data loss, security), report it with an explicit note on what remains uncertain. Otherwise, prefer not reporting over guessing.
 {%- if dependents_data %}
-- **Dependent Entities Impact**: Carefully review the provided dependent entities. Flag any changes in this PR that negatively impact the broader workflow, break dependent code, or create integration issues. Also consider how the existing constraints of these dependents might conflict with the PR's implementation.
+- **Dependent Entities Impact**: Review the provided dependent entities specifically. Flag any PR changes that directly break these dependents, or cases where the dependent's specific logic/constraints conflict with the PR. Do not hypothesize about general architectural impacts outside the provided code snippets.
 {%- endif %}
 
 Constructing comments:
@@ -178,7 +178,9 @@ review:
     No
 {%- if dependents_data %}
   impact_on_dependents: |
-    ...
+    - **Changed Entity:** 'update_user' in 'src/core/user.py'
+      - **Impact on Dependent:** 'BackgroundWorker' (class) in 'src/workers/user_worker.py'
+        The PR modifies the signature of 'update_user' by adding a required 'retry_count' parameter. In the dependent snippet for 'BackgroundWorker', this function is still called with the old signature. This will cause a TypeError.
 {%- endif %}
   key_issues_to_review:
     - relevant_file: |
@@ -286,7 +288,7 @@ User answers:
 {%- if dependents_data %}
 
 --Dependent Entities Impact--
-The following external entities depend on the code modified in this PR. Use this information to evaluate how the PR changes affect these dependents and the broader system workflow. Also consider how the existing workflows of these dependents might influence or conflict with the PR's outcome:
+The following external entities depend on the code modified in this PR. Analyze the exact usage of the 'Changed Entity' within each dependent's snippet to evaluate if the PR breaks it, requires updates, or conflicts with its logic:
 {%- for item in dependents_data %}
 Changed Entity: '{{ item.entityName }}' in '{{ item.filePath }}'
 Impacts:
@@ -339,7 +341,9 @@ review:
     No
 {%- if dependents_data %}
   impact_on_dependents: |
-    ...
+    - **Changed Entity:** 'update_user' in 'src/core/user.py'
+      - **Impact on Dependent:** 'BackgroundWorker' (class) in 'src/workers/user_worker.py'
+        The PR modifies the signature of 'update_user' by adding a required 'retry_count' parameter. In the dependent snippet for 'BackgroundWorker', this function is still called with the old signature. This will cause a TypeError.
 {%- endif %}
   key_issues_to_review:
     - relevant_file: |
