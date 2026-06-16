@@ -109,7 +109,9 @@ class PRReviewer:
                                 snippet = "\n".join(lines[:5])
                                 dep['content'] = f"{snippet}\n... (snippet) ..."
                                 
-                get_logger().info(f"Successfully loaded {len(self.dependents_data)} dependents from environment")
+                get_logger().info(f"Successfully loaded {len(self.dependents_data)} changed entities from environment")
+                get_logger().debug(f"Dependents data with snippets: {json.dumps(self.dependents_data, indent=2)}")
+                
             except json.JSONDecodeError as e:
                 get_logger().error(f"Failed to parse DEPENDENTS_DATA_JSON: {e}")
         else:

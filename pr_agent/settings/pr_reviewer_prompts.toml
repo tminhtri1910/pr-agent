@@ -181,6 +181,9 @@ review:
     - **Changed Entity:** 'update_user' in 'src/core/user.py'
       - **Impact on Dependent:** 'BackgroundWorker' (class) in 'src/workers/user_worker.py'
         The PR modifies the signature of 'update_user' by adding a required 'retry_count' parameter. In the dependent snippet for 'BackgroundWorker', this function is still called with the old signature. This will cause a TypeError.
+    - **Changed Entity:** 'calculate_tax' in 'src/core/tax.py'
+      - **Impact on Dependent:** 'CheckoutService' (class) in 'src/services/checkout.py'
+        The PR changes the tax calculation logic but does not break the signature. No required updates in the dependent code.
 {%- endif %}
   key_issues_to_review:
     - relevant_file: |
@@ -344,6 +347,9 @@ review:
     - **Changed Entity:** 'update_user' in 'src/core/user.py'
       - **Impact on Dependent:** 'BackgroundWorker' (class) in 'src/workers/user_worker.py'
         The PR modifies the signature of 'update_user' by adding a required 'retry_count' parameter. In the dependent snippet for 'BackgroundWorker', this function is still called with the old signature. This will cause a TypeError.
+    - **Changed Entity:** 'calculate_tax' in 'src/core/tax.py'
+      - **Impact on Dependent:** 'CheckoutService' (class) in 'src/services/checkout.py'
+        The PR changes the tax calculation logic but does not break the signature. No required updates in the dependent code.
 {%- endif %}
   key_issues_to_review:
     - relevant_file: |
