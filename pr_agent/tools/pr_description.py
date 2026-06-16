@@ -100,7 +100,7 @@ class PRDescription:
         if dependents_env:
             try:
                 self.dependents_data = json.loads(dependents_env)
-                get_logger().info(f"Successfully loaded {len(self.dependents_data)} dependents from environment")
+                get_logger().info(f"Successfully loaded {len(self.dependents_data)} changed entities from environment")
             except json.JSONDecodeError as e:
                 get_logger().error(f"Failed to parse DEPENDENTS_DATA_JSON: {e}")
         else:
@@ -750,8 +750,10 @@ class PRDescription:
                                     dep_name = dep.get("name", "")
                                     dep_type = dep.get("type", "")
                                     dep_file = dep.get("file", "")
+                                    dep_role = dep.get("role", "")
                                     
-                                    deps_html += f"<li><code>{entity_name}</code> impacts <strong>{dep_name}</strong> ({dep_type}) in <code>{dep_file}</code></li>"
+                                    role_formatted = f" - <i>{dep_role.replace('_', ' ').title()}</i>" if dep_role else ""
+                                    deps_html += f"<li><code>{entity_name}</code> impacts <strong>{dep_name}</strong> ({dep_type}) in <code>{dep_file}</code>{role_formatted}</li>"
                                     
                         # Append the HTML to the description if there are dependents
                         if deps_html:
