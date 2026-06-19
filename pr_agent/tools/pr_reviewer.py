@@ -1,3 +1,4 @@
+import asyncio
 import copy
 import datetime
 import traceback
@@ -15,7 +16,7 @@ from pr_agent.algo.pr_processing import (add_ai_metadata_to_diff_files,
                                          get_pr_diff,
                                          retry_with_fallback_models)
 from pr_agent.algo.token_handler import TokenHandler
-from pr_agent.algo.utils import (ModelType, PRReviewHeader,
+from pr_agent.algo.utils import (ModelType, PRReviewHeader, get_max_tokens,
                                  convert_to_markdown_v2, github_action_output,
                                  load_yaml, show_relevant_configurations)
 from pr_agent.config_loader import get_settings
@@ -82,35 +83,8 @@ class PRReviewer:
         if dependents_env:
             try:
                 self.dependents_data = json.loads(dependents_env)
-                # Extract snippets to save context window
-                for item in self.dependents_data:
-                    entity_name = item.get('entityName')
-                    if not entity_name:
-                        continue
-                    for dep in item.get('dependents', []):
-                        content = dep.get('content')
-                        if content:
-                            lines = content.split('\n')
-                            target_idx = -1
-                            # Find the first line containing the entityName
-                            for i, line in enumerate(lines):
-                                if entity_name in line:
-                                    target_idx = i
-                                    break
-                            
-                            if target_idx != -1:
-                                # Extract 3 lines before and 3 lines after
-                                start_idx = max(0, target_idx - 3)
-                                end_idx = min(len(lines), target_idx + 4)
-                                snippet = "\n".join(lines[start_idx:end_idx])
-                                dep['content'] = f"... (snippet) ...\n{snippet}\n... (snippet) ..."
-                            else:
-                                # Fallback: take the first 5 lines if not explicitly found
-                                snippet = "\n".join(lines[:5])
-                                dep['content'] = f"{snippet}\n... (snippet) ..."
-                                
                 get_logger().info(f"Successfully loaded {len(self.dependents_data)} changed entities from environment")
-                get_logger().debug(f"Dependents data with snippets: {json.dumps(self.dependents_data, indent=2)}")
+                get_logger().debug(f"Dependents data: {json.dumps(self.dependents_data, indent=2)}")
                 
             except json.JSONDecodeError as e:
                 get_logger().error(f"Failed to parse DEPENDENTS_DATA_JSON: {e}")
@@ -240,10 +214,121 @@ class PRReviewer:
 
         if self.patches_diff:
             get_logger().debug(f"PR diff", diff=self.patches_diff)
-            self.prediction = await self._get_prediction(model)
+            
+            # Clear dependents from vars so they don't bloat the main PR review prompt
+            self.vars["dependents_data"] = []
+            
+            main_task = self._get_prediction(model)
+            dependents_task = self._run_dependent_batches_concurrently(model)
+            
+            self.prediction, self.dependent_impact_prediction = await asyncio.gather(main_task, dependents_task)
         else:
             get_logger().warning(f"Empty diff for PR: {self.pr_url}")
             self.prediction = None
+            self.dependent_impact_prediction = ""
+
+    async def _check_dependent_batch(self, model: str, batch: list) -> str:
+        variables = copy.deepcopy(self.vars)
+        variables["diff"] = self.patches_diff
+        variables["dependents_batch"] = batch
+
+        environment = Environment(undefined=StrictUndefined)
+        system_prompt = environment.from_string(get_settings().pr_dependent_impact_prompt.system).render(variables)
+        user_prompt = environment.from_string(get_settings().pr_dependent_impact_prompt.user).render(variables)
+
+        response, finish_reason = await self.ai_handler.chat_completion(
+            model=model,
+            temperature=get_settings().config.temperature,
+            system=system_prompt,
+            user=user_prompt
+        )
+        return response
+
+    async def _run_dependent_batches_concurrently(self, model: str) -> str:
+        if not hasattr(self, 'dependents_data') or not self.dependents_data:
+            return ""
+
+        MAX_GLOBAL_BATCHES = 3
+        batches = []
+        current_batch = []
+        current_tokens = 0
+        diff_tokens = self.token_handler.count_tokens(self.patches_diff) if self.patches_diff else 0
+        prompt_template_tokens = self.token_handler.count_tokens(
+            get_settings().pr_dependent_impact_prompt.system + 
+            get_settings().pr_dependent_impact_prompt.user
+        )
+        model_max_tokens = get_max_tokens(model)
+        # We reserve tokens for the diff, the prompt template, and the AI's output buffer (e.g. 2000 tokens)
+        max_tokens_per_batch = max(5000, model_max_tokens - diff_tokens - prompt_template_tokens - 2000)
+
+        # 1. Create a prioritized global queue
+        all_deps = []
+        for item in self.dependents_data:
+            entity_name = item.get('entityName')
+            file_path = item.get('filePath')
+            for dep in item.get('direct_dependents', []):
+                all_deps.append((entity_name, file_path, dep))
+        
+        for item in self.dependents_data:
+            entity_name = item.get('entityName')
+            file_path = item.get('filePath')
+            for dep in item.get('transitive_dependents', []):
+                all_deps.append((entity_name, file_path, dep))
+
+        # 2. Iterate through the queue and pack batches
+        for entity_name, file_path, dep in all_deps:
+            if len(batches) >= MAX_GLOBAL_BATCHES:
+                get_logger().info(f"Reached MAX_GLOBAL_BATCHES ({MAX_GLOBAL_BATCHES}). Discarding remaining transitive dependents.")
+                break
+
+            dep_content = dep.get('content', '')
+            dep_tokens = self.token_handler.count_tokens(dep_content)
+
+            if current_tokens + dep_tokens > max_tokens_per_batch and current_batch:
+                batches.append(current_batch)
+                current_batch = []
+                current_tokens = 0
+                
+                # Check global limit again after sealing the batch!
+                if len(batches) >= MAX_GLOBAL_BATCHES:
+                    get_logger().info(f"Reached MAX_GLOBAL_BATCHES ({MAX_GLOBAL_BATCHES}). Discarding remaining transitive dependents.")
+                    break
+
+            existing_entity = next((e for e in current_batch if e['entityName'] == entity_name and e['filePath'] == file_path), None)
+            if existing_entity:
+                existing_entity['dependents'].append(dep)
+            else:
+                current_batch.append({
+                    'entityName': entity_name,
+                    'filePath': file_path,
+                    'dependents': [dep]
+                })
+
+            current_tokens += dep_tokens
+
+        if current_batch:
+            batches.append(current_batch)
+
+        if not batches:
+            return ""
+
+        get_logger().info(f"Running dependent impact analysis in {len(batches)} batches.")
+        tasks = [self._check_dependent_batch(model, batch) for batch in batches]
+        predictions = await asyncio.gather(*tasks)
+
+        combined_impacts = []
+        for pred in predictions:
+            try:
+                data = load_yaml(pred.strip(), first_key='impact_on_dependents', last_key='impact_on_dependents')
+                impact = data.get('impact_on_dependents', "")
+                if impact and "no impact" not in impact.lower():
+                    combined_impacts.append(impact.strip())
+            except Exception as e:
+                get_logger().error(f"Failed to parse dependent batch prediction: {e}")
+
+        if combined_impacts:
+            return "\n".join(combined_impacts)
+        return "No impact on dependents found."
 
     async def _get_prediction(self, model: str) -> str:
         """
@@ -287,6 +372,9 @@ class PRReviewer:
         if 'review' not in data:
             get_logger().exception("Failed to parse review data", artifact={"data": data})
             return ""
+
+        if hasattr(self, 'dependent_impact_prediction') and self.dependent_impact_prediction and "no impact" not in self.dependent_impact_prediction.lower():
+            data['review']['impact_on_dependents'] = self.dependent_impact_prediction
 
         # move data['review'] 'key_issues_to_review' key to the end of the dictionary
         if 'key_issues_to_review' in data['review']:
