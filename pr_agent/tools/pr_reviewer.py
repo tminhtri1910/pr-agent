@@ -273,6 +273,7 @@ class PRReviewer:
             entity_name = item.get('entityName')
             file_path = item.get('filePath')
             for dep in item.get('transitive_dependents', []):
+                dep['role'] = 'transitive_dependent'
                 all_deps.append((entity_name, file_path, dep))
 
         # 2. Iterate through the queue and pack batches
