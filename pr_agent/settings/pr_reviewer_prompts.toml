@@ -373,12 +373,12 @@ Changed Entity: '{{ item.entityName }}' in '{{ item.filePath }}'
 Impacts:
 {%- for dep in item.dependents %}
   - {{ dep.name }} ({{ dep.type }}) in '{{ dep.file }}'
-{%- if dep.role %}    [Role: {{ dep.role }}]{%- endif %}
-{%- if dep.parent %}    (Depends on: {{ dep.parent }}){%- endif %}
-{%- if dep.content %}
+{%- if dep.get('role') %}    [Role: {{ dep.get('role') }}]{%- endif %}
+{%- if dep.get('parent') %}    (Depends on: {{ dep.get('parent') }}){%- endif %}
+{%- if dep.get('content') %}
     Code context:
     ```
-    {{ dep.content | trim }}
+    {{ dep.get('content') | trim }}
     ```
 {%- endif %}
 {%- endfor %}
