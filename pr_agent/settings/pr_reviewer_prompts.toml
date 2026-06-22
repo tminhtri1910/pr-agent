@@ -275,6 +275,13 @@ User answers:
 =====
 {%- endif %}
 
+{%- if dependent_impact_prediction %}
+
+--Dependent Impact Analysis--
+A prior analysis of dependent code has already identified the following impacts. Please incorporate this information when assessing the overall severity, score, and key issues of the PR. Do not restate the exact impacts verbatim, but consider them in your overall review.
+{{ dependent_impact_prediction | trim }}
+{%- endif %}
+
 The PR code diff:
 ======
 {{ diff|trim }}

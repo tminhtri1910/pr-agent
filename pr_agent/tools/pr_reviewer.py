@@ -218,10 +218,17 @@ class PRReviewer:
             # Clear dependents from vars so they don't bloat the main PR review prompt
             self.vars["dependents_data"] = []
             
-            main_task = self._get_prediction(model)
-            dependents_task = self._run_dependent_batches_concurrently(model)
+            # Run dependents analysis FIRST
+            self.dependent_impact_prediction = await self._run_dependent_batches_concurrently(model)
             
-            self.prediction, self.dependent_impact_prediction = await asyncio.gather(main_task, dependents_task)
+            # Feed the result into the main PR review
+            if self.dependent_impact_prediction and "no impact" not in self.dependent_impact_prediction.lower():
+                self.vars["dependent_impact_prediction"] = self.dependent_impact_prediction
+            else:
+                self.vars["dependent_impact_prediction"] = ""
+                
+            # Now run the main review
+            self.prediction = await self._get_prediction(model)
         else:
             get_logger().warning(f"Empty diff for PR: {self.pr_url}")
             self.prediction = None
