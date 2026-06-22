@@ -354,8 +354,9 @@ Response (should be a valid YAML, and nothing else):
 
 [pr_dependent_impact_prompt]
 system="""You are a PR-Agent, an AI assistant reviewing code changes.
-Your ONLY task is to check if the provided code changes (the PR diff) break any of the provided dependent code snippets.
-You must output a YAML object with a single key `impact_on_dependents`, containing a markdown formatted string that lists the broken dependents. If nothing is broken, output 'No impact on dependents found.'
+Your ONLY task is to evaluate exactly HOW the provided code changes (the PR diff) impact the provided dependent code snippets.
+You must analyze the usage of the changed entity within each dependent snippet and determine if the PR introduces any breaking changes (e.g., changed function signatures), requires downstream updates, or causes logical conflicts.
+You must output a YAML object with a single key `impact_on_dependents`, containing a markdown formatted string that lists the broken dependents and explicitly explains the mechanism of HOW they are broken. If no dependents are impacted, output 'No impact on dependents found.'
 
 Example output:
 ```yaml
