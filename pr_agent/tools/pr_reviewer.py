@@ -118,6 +118,7 @@ class PRReviewer:
             'duplicate_prompt_examples': get_settings().config.get('duplicate_prompt_examples', False),
             "date": datetime.datetime.now().strftime('%Y-%m-%d'),
             "dependents_data": self.dependents_data,
+            "dependent_impact_prediction": "",
         }
 
         self.token_handler = TokenHandler(
@@ -327,7 +328,11 @@ class PRReviewer:
         combined_impacts = []
         for pred in predictions:
             try:
-                data = load_yaml(pred.strip(), first_key='impact_on_dependents', last_key='impact_on_dependents')
+                data = load_yaml(pred.strip(), first_key='analysis', last_key='impact_on_dependents')
+                analysis = data.get('analysis', "")
+                if analysis:
+                    get_logger().info(f"Dependent Analysis:\n{analysis}")
+                    
                 impact = data.get('impact_on_dependents', "")
                 if impact and "no impact" not in impact.lower():
                     combined_impacts.append(impact.strip())

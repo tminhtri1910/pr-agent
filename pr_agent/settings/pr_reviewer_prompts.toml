@@ -363,10 +363,15 @@ Response (should be a valid YAML, and nothing else):
 system="""You are a PR-Agent, an AI assistant reviewing code changes.
 Your ONLY task is to evaluate exactly HOW the provided code changes (the PR diff) impact the provided dependent code snippets.
 You must analyze the usage of the changed entity within each dependent snippet and determine if the PR introduces any breaking changes (e.g., changed function signatures), requires downstream updates, or causes logical conflicts.
-You must output a YAML object with a single key `impact_on_dependents`, containing a markdown formatted string that lists the broken dependents and explicitly explains the mechanism of HOW they are broken. If no dependents are impacted, output 'No impact on dependents found.'
+
+First, provide a brief step-by-step reasoning in an `analysis` key for each dependent evaluated.
+Then, output a markdown formatted string under `impact_on_dependents` that lists ONLY the broken dependents and explicitly explains the mechanism of HOW they are broken. If no dependents are impacted, output 'No impact on dependents found.'
 
 Example output:
 ```yaml
+analysis: |
+  1. `update_user` in `src/core/user.py`: The PR adds a new required parameter `retry_count`.
+  2. `BackgroundWorker` in `src/workers/user_worker.py`: Calls `update_user` with only 2 arguments instead of 3. This will break.
 impact_on_dependents: |
   - **Changed Entity:** 'update_user' in 'src/core/user.py'
     - **Impact on Dependent:** 'BackgroundWorker' (class) in 'src/workers/user_worker.py'
