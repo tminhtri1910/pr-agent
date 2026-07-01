@@ -79,17 +79,16 @@ class PRReviewer:
 
         # === INJECT DEPENDENTS FROM GITHUB ACTIONS ===
         self.dependents_data = []
-        dependents_env = os.environ.get("DEPENDENTS_DATA_JSON")
-        if dependents_env:
+        dependents_data_file = os.environ.get("DEPENDENTS_DATA_FILE")
+        if dependents_data_file and os.path.exists(dependents_data_file):
             try:
-                self.dependents_data = json.loads(dependents_env)
-                get_logger().info(f"Successfully loaded {len(self.dependents_data)} changed entities from environment")
-                get_logger().debug(f"Dependents data: {json.dumps(self.dependents_data, indent=2)}")
-                
-            except json.JSONDecodeError as e:
-                get_logger().error(f"Failed to parse DEPENDENTS_DATA_JSON: {e}")
+                with open(dependents_data_file, 'r', encoding='utf-8') as f:
+                    self.dependents_data = json.load(f)
+                get_logger().info(f"Successfully loaded {len(self.dependents_data)} changed entities from {dependents_data_file}")
+            except Exception as e:
+                get_logger().error(f"Failed to load or parse DEPENDENTS_DATA_FILE: {e}")
         else:
-            get_logger().info("DEPENDENTS_DATA_JSON environment variable is empty or not set.")
+            get_logger().info("DEPENDENTS_DATA_FILE environment variable is empty, or file does not exist.")
         # =============================================
 
         self.vars = {
