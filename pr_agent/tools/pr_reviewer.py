@@ -222,7 +222,7 @@ class PRReviewer:
             self.dependent_impact_prediction = await self._run_dependent_batches_concurrently(model)
             
             # Feed the result into the main PR review
-            if self.dependent_impact_prediction and "no impact" not in self.dependent_impact_prediction.lower():
+            if self.dependent_impact_prediction:
                 self.vars["dependent_impact_prediction"] = self.dependent_impact_prediction
             else:
                 self.vars["dependent_impact_prediction"] = ""
@@ -333,14 +333,14 @@ class PRReviewer:
                     get_logger().info(f"Dependent Analysis:\n{analysis}")
                     
                 impact = data.get('impact_on_dependents', "")
-                if impact and "no impact" not in impact.lower():
+                if impact and impact.strip() != "NO_IMPACT":
                     combined_impacts.append(impact.strip())
             except Exception as e:
                 get_logger().error(f"Failed to parse dependent batch prediction: {e}")
 
         if combined_impacts:
-            return "\n".join(combined_impacts)
-        return "No impact on dependents found."
+            return "\n\n".join(combined_impacts)
+        return ""
 
     async def _get_prediction(self, model: str) -> str:
         """
