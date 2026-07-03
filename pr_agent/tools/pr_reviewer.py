@@ -327,7 +327,12 @@ class PRReviewer:
         combined_impacts = []
         for pred in predictions:
             try:
-                data = load_yaml(pred.strip(), first_key='analysis', last_key='impact_on_dependents')
+                data = load_yaml(
+                    pred.strip(),
+                    keys_fix_yaml=['analysis:', 'impact_on_dependents:'],
+                    first_key='analysis',
+                    last_key='impact_on_dependents'
+                )
                 analysis = data.get('analysis', "")
                 if analysis:
                     get_logger().info(f"Dependent Analysis:\n{analysis}")

@@ -365,12 +365,20 @@ Your task is to act as a System Impact Analyzer. You are provided with a PR diff
 Instead of just checking for crashes, you must synthesize this information to provide the main PR reviewer with the "big picture" of how this change affects the broader system.
 
 First, provide a brief step-by-step reasoning in an `analysis` key for each dependent evaluated.
-Then, output a markdown formatted string under `impact_on_dependents` that summarizes the following:
+Then, output a string under `impact_on_dependents` that summarizes the following:
 1. **System Context**: Briefly explain how the changed entities are utilized by the broader system based on the dependent snippets (e.g., "This function is highly critical as it's the core loop for the Kafka consumer").
 2. **Behavioral Shifts**: Explain how the PR changes the behavior of the dependents, even if it doesn't crash them (e.g. changing a timeout, altering a return type).
 3. **Risks & Breakages**: Call out any actual breaking API changes or severe logical conflicts.
 
-If the dependents provide absolutely no useful context and are completely unaffected, output 'NO_IMPACT'.
+**CRITICAL RULES FOR YAML FORMATTING**:
+1. You MUST use block scalars (the `|` character) for both `analysis` and `impact_on_dependents` (e.g., `analysis: |`).
+2. Your entire response MUST be a SINGLE valid YAML object. Do NOT close the ```yaml block and do NOT use ```markdown. 
+
+If the dependents provide absolutely no useful context and are completely unaffected, you must still output a single valid YAML object, like so:
+```yaml
+impact_on_dependents: |
+  NO_IMPACT
+```
 
 Example output:
 ```yaml
